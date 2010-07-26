@@ -47,7 +47,7 @@ namespace :cpr do
           xml << '<zip_code>' + CGI::escapeHTML(street.zip_code) + '</zip_code>'
           xml << '<city_name>' + CGI::escapeHTML(street.city_name) + '</city_name>'
           xml << '<uuid>' + CGI::escapeHTML(street.uuid.to_s) + '</uuid>'
-          xml << '</street>'
+          xml << '</street>' + "\n"
           file.write xml
         end
         file.write '</streets>'
@@ -57,8 +57,9 @@ namespace :cpr do
     desc "Populates Streets table from XML dump. Reads from a URL."
     task :import => :environment do
       url = ENV['inurl'] || "http://github.com/troelskn/cpr-street-data/raw/master/tmp/streets.xml"
-      require 'eventmachine'
-      require 'em-http'
+
+      require 'uri'
+      require 'socket'
       require 'nokogiri'
 
       class SAXHandler < Nokogiri::XML::SAX::Document
@@ -95,20 +96,40 @@ namespace :cpr do
 
       end
 
+      handler = SAXHandler.new
       ActiveRecord::Base.transaction do
-        handler = SAXHandler.new
-        EventMachine.run do
-          io_read, io_write = IO.pipe
-          EventMachine.defer(proc {
-                               parser = Nokogiri::XML::SAX::Parser.new(handler)
-                               parser.parse_io(io_read)
-                             })
-          http = EventMachine::HttpRequest.new(url).get
-          http.stream { |chunk| io_write << chunk }
-          http.callback { EventMachine.stop }
-        end
-      end
+        # IO to use as a buffer between sax parser and socket
+        io_read, io_write = IO.pipe
 
+        # Start parsing IO
+        worker_thread = Thread.new do
+          parser = Nokogiri::XML::SAX::Parser.new(handler)
+          parser.parse_io(io_read)
+        end
+
+        # Start the socket
+        uri = URI.parse(url)
+        host = uri.host
+        port = uri.port || 80
+        path = url.gsub /^.*#{host}/, ""
+
+        socket = TCPSocket.open(host, port)
+
+        socket.print "GET #{path} HTTP/1.0\r\nAccept:*/*\r\nHost:#{host}\r\nUser-Agent:Ruby\r\n\r\n"
+
+        reading_body = false
+        while (line = socket.gets)
+          if reading_body
+            io_write << line
+          else
+            reading_body = (line.chomp == "")
+          end
+        end
+
+        socket.close
+        worker_thread.join
+
+      end
     end
 
   end
