@@ -3,7 +3,7 @@ namespace :cpr do
 
   desc "Populates Streets table from CPR data."
   task :import => :environment do
-    file_name = ENV['infile'] || "#{RAILS_ROOT}/data/A370715.txt"
+    file_name = ENV['infile'] || "#{RAILS_ROOT}/tmp/A370715.txt"
     ActiveRecord::Base.transaction do
       reader = Cpr::Reader.new(file_name)
       reader.run(Cpr::Writer.new)
@@ -14,7 +14,7 @@ namespace :cpr do
 
     desc "Populates Streets table from YAML dump"
     task :import => :environment do
-      file_name = ENV['infile'] || "#{RAILS_ROOT}/data/streets.yml"
+      file_name = ENV['infile'] || "#{RAILS_ROOT}/tmp/streets.yml"
       ActiveRecord::Base.transaction do
         Street.create YAML.load_file(file_name)
       end
@@ -22,7 +22,7 @@ namespace :cpr do
 
     desc "Dump Streets table to YAML"
     task :export => :environment do
-      file_name = ENV['outfile'] || "#{RAILS_ROOT}/data/streets.yml"
+      file_name = ENV['outfile'] || "#{RAILS_ROOT}/tmp/streets.yml"
       File.open(file_name, 'w') do |file|
         YAML::dump(Street.all, file)
       end
