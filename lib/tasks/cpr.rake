@@ -40,7 +40,7 @@ namespace :cpr do
       file_name = ENV['outfile'] || "#{RAILS_ROOT}/tmp/streets.xml"
       File.open(file_name, 'w') do |file|
         file.write '<?xml version="1.0" encoding="UTF-8"?>'
-        file.write '<streets>'
+        file.write '<streets>' + "\n"
         Street.all.each do |street|
           xml = '<street>'
           xml << '<street_name>' + CGI::escapeHTML(street.street_name) + '</street_name>'
@@ -115,7 +115,7 @@ namespace :cpr do
 
         socket = TCPSocket.open(host, port)
 
-        socket.print "GET #{path} HTTP/1.0\r\nAccept:*/*\r\nHost:#{host}\r\nUser-Agent:Ruby\r\n\r\n"
+        socket.print "GET #{path} HTTP/1.0\r\nAccept:*/*\r\nHost:#{host}\r\nUser-Agent:Ruby/TCPSocket\r\n\r\n"
 
         reading_body = false
         while (line = socket.gets)
