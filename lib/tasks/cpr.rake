@@ -73,29 +73,24 @@ namespace :cpr do
             @street = {}
           end
           @current_tag = name.to_sym
-        rescue Error => err
-          p err
-          EventMachine.stop
         end
 
         def characters(text)
           @street[@current_tag] = "" unless @street[@current_tag]
           @street[@current_tag] << text
-        rescue Error => err
-          p err
-          EventMachine.stop
         end
 
         def end_element(name)
-          puts "* end_element(name)"
           if name == "street"
-            puts "*** Saving Street"
-            p @street
-            Street.new(@street).save!
+            begin
+              puts ">>> Processing #{street.to_json}"
+              unless Street.first(:conditions => {:uuid => @street.uuid}).any?
+                Street.new(@street).save!
+              end
+            rescue Error => err
+              p err
+            end
           end
-        rescue Error => err
-          p err
-          EventMachine.stop
         end
 
       end
