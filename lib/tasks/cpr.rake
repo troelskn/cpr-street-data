@@ -16,7 +16,10 @@ namespace :cpr do
     task :import => :environment do
       file_name = ENV['infile'] || "#{RAILS_ROOT}/tmp/streets.yml"
       ActiveRecord::Base.transaction do
-        Street.create YAML.load_file(file_name)
+        data = YAML.load_file(file_name)
+        data.each do |yaml|
+          Street.create yaml.ivars["attributes"]
+        end
       end
     end
 
