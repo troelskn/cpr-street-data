@@ -46,12 +46,74 @@ namespace :cpr do
           xml << '<street_name>' + CGI::escapeHTML(street.street_name) + '</street_name>'
           xml << '<zip_code>' + CGI::escapeHTML(street.zip_code) + '</zip_code>'
           xml << '<city_name>' + CGI::escapeHTML(street.city_name) + '</city_name>'
-          xml << '<uuid>' + CGI::escapeHTML(street.street_name.to_s) + '</uuid>'
+          xml << '<uuid>' + CGI::escapeHTML(street.uuid.to_s) + '</uuid>'
           xml << '</street>'
           file.write xml
         end
         file.write '</streets>'
       end
+    end
+
+    desc "Populates Streets table from XML dump. Reads from a URL."
+    task :import => :environment do
+      url = ENV['inurl'] || "http://github.com/troelskn/cpr-street-data/raw/master/tmp/streets.xml"
+      require 'eventmachine'
+      require 'em-http'
+      require 'nokogiri'
+
+      class SAXHandler < Nokogiri::XML::SAX::Document
+        def initialize
+          super
+          @street = {}
+          @current_tag = nil
+        end
+
+        def start_element(name, attrs=[])
+          if name == "street"
+            @street = {}
+          end
+          @current_tag = name.to_sym
+        rescue Error => err
+          p err
+          EventMachine.stop
+        end
+
+        def characters(text)
+          @street[@current_tag] = "" unless @street[@current_tag]
+          @street[@current_tag] << text
+        rescue Error => err
+          p err
+          EventMachine.stop
+        end
+
+        def end_element(name)
+          puts "* end_element(name)"
+          if name == "street"
+            puts "*** Saving Street"
+            p @street
+            Street.new(@street).save!
+          end
+        rescue Error => err
+          p err
+          EventMachine.stop
+        end
+
+      end
+
+      ActiveRecord::Base.transaction do
+        handler = SAXHandler.new
+        EventMachine.run do
+          io_read, io_write = IO.pipe
+          EventMachine.defer(proc {
+                               parser = Nokogiri::XML::SAX::Parser.new(handler)
+                               parser.parse_io(io_read)
+                             })
+          http = EventMachine::HttpRequest.new(url).get
+          http.stream { |chunk| io_write << chunk }
+          http.callback { EventMachine.stop }
+        end
+      end
+
     end
 
   end
