@@ -86,6 +86,7 @@ module Cpr
     # Deletes duplicate entries and removes bogus records (zip=9999)
     def finalize!
       Street.connection.execute "DELETE FROM streets WHERE zip_code = '9999'"
+      Street.connection.execute "DELETE FROM streets WHERE zip_code IS NULL OR city_name IS NULL OR street_name IS NULL"
       streets = Street.find_by_sql "SELECT MIN(id) AS id, street_name, zip_code FROM streets GROUP BY street_name, zip_code HAVING COUNT(*) > 1"
       streets.each do |street|
         sql = sprintf(

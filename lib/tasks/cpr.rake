@@ -17,8 +17,8 @@ namespace :cpr do
       file_name = ENV['infile'] || "#{RAILS_ROOT}/tmp/streets.yml"
       ActiveRecord::Base.transaction do
         data = YAML.load_file(file_name)
-        data.each do |yaml|
-          Street.create yaml.ivars["attributes"]
+        data.each do |fixture|
+          Street.new(:street_name => fixture.street_name, :zip_code => fixture.zip_code, :city_name => fixture.city_name, :uuid => fixture.uuid).save!
         end
       end
     end
@@ -28,6 +28,29 @@ namespace :cpr do
       file_name = ENV['outfile'] || "#{RAILS_ROOT}/tmp/streets.yml"
       File.open(file_name, 'w') do |file|
         YAML::dump(Street.all, file)
+      end
+    end
+
+  end
+
+  namespace :xml do
+
+    desc "Dump Streets table to XML"
+    task :export => :environment do
+      file_name = ENV['outfile'] || "#{RAILS_ROOT}/tmp/streets.xml"
+      File.open(file_name, 'w') do |file|
+        file.write '<?xml version="1.0" encoding="UTF-8"?>'
+        file.write '<streets>'
+        Street.all.each do |street|
+          xml = '<street>'
+          xml << '<street_name>' + CGI::escapeHTML(street.street_name) + '</street_name>'
+          xml << '<zip_code>' + CGI::escapeHTML(street.zip_code) + '</zip_code>'
+          xml << '<city_name>' + CGI::escapeHTML(street.city_name) + '</city_name>'
+          xml << '<uuid>' + CGI::escapeHTML(street.street_name.to_s) + '</uuid>'
+          xml << '</street>'
+          file.write xml
+        end
+        file.write '</streets>'
       end
     end
 
